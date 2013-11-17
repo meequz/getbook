@@ -1,9 +1,7 @@
 #! /usr/bin/env python3
 # coding: utf-8
 import urllib.request
-#~ from bs4 import BeautifulSoup
 import sys
-import json
 
 def del_tags(string):
 	res = ''
@@ -20,8 +18,8 @@ def del_tags(string):
 				continue
 		res += char
 	return res
-def add_to_file(what_add, target_file, end='\n'):
-	outfile = open(target_file, 'a+')
+def write_to_file(what_add, target_file, end='\n'):
+	outfile = open(target_file, 'w')
 	outfile.write( str(what_add) + end )
 	outfile.close()
 def get_page_content(url):
@@ -29,7 +27,7 @@ def get_page_content(url):
 	return page.read().decode(encoding='UTF-8')
 def get_refs(page):
 	res = []
-	st = page.find('>Примечания</span>')
+	st = page.find('<a name="n_1"></a>')
 	if st != -1:
 		cn = 1
 		while True:
@@ -47,17 +45,45 @@ def get_refs(page):
 				break
 	return res
 def cut_start(book):
-	start_sign = '[А] [Б] [В] [Г] [Д] [Е] [Ж] [З] [И] [Й] [К] [Л] [М] [Н] [О] [П] [Р] [С] [Т] [У] [Ф] [Х] [Ц] [Ч] [Ш] [Щ] [Э] [Ю] [Я]'
+	start_sign = '[Ю] [Я]'
 	book = book[book.find(start_sign):]
 	bookst = book.find('\n')
 	return book[bookst:]
+def del_empty_lines(sometext):
+	work = sometext.split('\n')
+	res = []
+	skipflag = 0
+	for idx, line in enumerate(work):
+		if skipflag:
+			skipflag = 0
+			continue
+		if line:
+			res.append(line)
+			continue
+		try:
+			if not work[idx+1]:
+				res.append(line)
+				skipflag = 1
+				continue
+		except IndexError:
+			break
+	return '\n'.join(res)
+def strip_lines(sometext):
+	work = sometext.split('\n')
+	res = [line.strip() for line in work]
+	return '\n'.join(res)
 
 page = get_page_content(sys.argv[1])
 title = sys.argv[2]
-print('Page is getted ({} characters), processing...'.format(len(page)))
+print('Page received ({} characters), processing...'.format(len(page)))
 
+page = page.replace('<p class=', '\n<p class=')
 for idx, ref in enumerate(get_refs(page)): page = page.replace('['+str(idx+1)+']', '['+ref+']')
+
 book = del_tags(page)
 book = cut_start(book)
+book = strip_lines(book)
+book = del_empty_lines(book)
 
-add_to_file(book, target_file=title+'.txt', end='\n')
+write_to_file(book, target_file=title+'.txt', end='\n')
+print('Done:', title+'.txt')
